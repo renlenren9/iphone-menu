@@ -7,8 +7,45 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#111318">
 <title>マイメニュー</title>
-
+  
 <style>
+
+/* カスタマイズ設定 */
+body.light-theme {
+  background: #f2f2f7;
+  color: #1c1c1e;
+}
+
+body.light-theme .item {
+  color: #1c1c1e;
+}
+
+body.light-theme .panel,
+body.light-theme .manager-item {
+  background: #ffffff;
+  color: #1c1c1e;
+}
+
+body.small-icons .icon {
+  width: 54px;
+  height: 54px;
+  font-size: 27px;
+}
+
+body.large-icons .icon {
+  width: 88px;
+  height: 88px;
+  font-size: 44px;
+}
+
+body.small-icons .name {
+  font-size: 11px;
+}
+
+body.large-icons .name {
+  font-size: 16px;
+}
+  
 * { box-sizing: border-box; }
 
 body {
@@ -213,6 +250,56 @@ button {
 
   <button class="primary" onclick="newItem()">＋ 新しい項目を追加</button>
 
+  <button
+  onclick="showSettings()"
+  style="width:100%;margin-top:10px"
+>
+  ⚙️ 表示・デザイン設定
+</button>
+
+<div id="settingsPanel" class="panel hidden">
+  <h3>表示・デザイン設定</h3>
+
+  <div class="field">
+    <label>アイコン名</label>
+    <select id="settingLabels">
+      <option value="show">表示</option>
+      <option value="hide">非表示</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>グリッド列数</label>
+    <select id="settingColumns">
+      <option value="2">2列</option>
+      <option value="3">3列</option>
+      <option value="4">4列</option>
+      <option value="5">5列</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>アイコンサイズ</label>
+    <select id="settingSize">
+      <option value="small">小</option>
+      <option value="medium">標準</option>
+      <option value="large">大</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>テーマ</label>
+    <select id="settingTheme">
+      <option value="dark">ダーク</option>
+      <option value="light">ライト</option>
+    </select>
+  </div>
+
+  <button class="primary" onclick="saveSettings()">
+    設定を保存
+  </button>
+  </div>
+ 
   <div class="panel">
   <h3>バックアップ・復元</h3>
 
@@ -314,6 +401,24 @@ const defaultItems = [
 
 const STORAGE_KEY = "myMenuItems_v1";
 
+const SETTINGS_KEY = "myMenuSettings_v1";
+
+let settings = {
+  showNames: true,
+  columns: 3,
+  iconSize: "medium",
+  theme: "dark"
+};
+
+try {
+  const savedSettings = localStorage.getItem(SETTINGS_KEY);
+  if (savedSettings) {
+    settings = { ...settings, ...JSON.parse(savedSettings) };
+  }
+} catch(e) {
+  console.log("設定の読み込みに失敗しました");
+}
+  
 let items = [];
 let editingIndex = -1;
 let selectedImage = "";
@@ -327,6 +432,78 @@ try {
   items = defaultItems;
 }
 
+
+function showSettings() {
+  const panel = document.getElementById("settingsPanel");
+
+  document.getElementById("settingLabels").value =
+    settings.showNames ? "show" : "hide";
+
+  document.getElementById("settingColumns").value =
+    String(settings.columns);
+
+  document.getElementById("settingSize").value =
+    settings.iconSize;
+
+  document.getElementById("settingTheme").value =
+    settings.theme;
+
+  panel.classList.toggle("hidden");
+}
+
+function saveSettings() {
+  settings.showNames =
+    document.getElementById("settingLabels").value === "show";
+
+  settings.columns =
+    Number(document.getElementById("settingColumns").value);
+
+  settings.iconSize =
+    document.getElementById("settingSize").value;
+
+  settings.theme =
+    document.getElementById("settingTheme").value;
+
+  try {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify(settings)
+    );
+  } catch (e) {
+    alert("設定を保存できませんでした。");
+    return;
+  }
+
+  applySettings();
+  renderMenu();
+
+  document.getElementById("settingsPanel").classList.add("hidden");
+
+  alert("設定を保存しました。");
+}
+
+function applySettings() {
+  const menu = document.getElementById("menu");
+
+  menu.style.gridTemplateColumns =
+    `repeat(${settings.columns}, minmax(0, 1fr))`;
+
+  document.body.classList.toggle(
+    "light-theme",
+    settings.theme === "light"
+  );
+
+  document.body.classList.toggle(
+    "small-icons",
+    settings.iconSize === "small"
+  );
+
+  document.body.classList.toggle(
+    "large-icons",
+    settings.iconSize === "large"
+  );
+}
+  
 function saveData() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
@@ -346,7 +523,8 @@ function backupMenu() {
     app: "myMenu",
     version: 1,
     createdAt: new Date().toISOString(),
-    items: items
+    items: items,
+    settings: settings
   };
 
   const blob = new Blob(
@@ -411,12 +589,23 @@ function restoreMenu(event) {
       const oldItems = items;
       items = backup.items;
 
+      const oldSettings = settings;
+
+      if (backup.settings && typeof backup.settings === "object") {
+      settings = { ...settings, ...backup.settings };
+      }
+      
       if (saveData()) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        applySettings();
         renderManageList();
         renderMenu();
         alert("バックアップから復元しました。");
       } else {
-        items = oldItems;
+      items = oldItems;
+      settings = oldSettings;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      applySettings();
       }
 
     } catch(e) {
@@ -460,8 +649,9 @@ function renderMenu() {
     name.className = "name";
     name.textContent = item.name;
 
-    link.appendChild(icon);
+    if (settings.showNames) {
     link.appendChild(name);
+    }
 
     if (item.type === "shortcut") {
       link.href = "shortcuts://run-shortcut?name=" +

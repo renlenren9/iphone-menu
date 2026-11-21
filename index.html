@@ -52,7 +52,25 @@ h1
   text-decoration:none;
   color:inherit;
   text-align:center;
-  -webkit-tap-highlight-color:transparent
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .15s,opacity .15s
+}
+body.reorder-mode .item
+{
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none
+}
+.item.dragging
+{
+  opacity:.4;
+  transform:scale(.94)
+}
+.item.drop-target
+{
+  outline:3px dashed #3478f6;
+  outline-offset:5px;
+  border-radius:12px
 }
 .icon
 {
@@ -277,6 +295,8 @@ button
 <div class="subtitle">よく使う操作を選択してください</div>
 <div class="grid" id="menu">
 </div>
+<button id="reorderToggle" class="manage-button" style="margin-top:12px" onclick="toggleReorderMode()">↕️ 並べ替えモード</button>
+<p id="reorderHint" class="note hidden">アイコンを押したまま、移動したい場所までドラッグしてください。終了したら「並べ替えを終了」を押してください。</p>
 <button class="manage-button" onclick="showManager()">⚙️ メニュー管理</button>
 </div>
 <div id="manager">
@@ -394,7 +414,7 @@ let items=[],settings=
 {
   showNames:false,columns:3,iconSize:'medium',theme:'dark'
 }
-,editingIndex=-1,selectedImage='';
+,editingIndex=-1,selectedImage='',reorderMode=false,dragIndex=-1,dropIndex=-1;
 try
 {
   const s=localStorage.getItem(STORAGE_KEY);
@@ -474,6 +494,94 @@ function changeSetting(k,v)
     applySettings()
   }
 }
+function toggleReorderMode()
+{
+  reorderMode=!reorderMode;
+  document.body.classList.toggle('reorder-mode',reorderMode);
+  reorderToggle.textContent=reorderMode?'✓ 並べ替えを終了':'↕️ 並べ替えモード';
+  reorderHint.classList.toggle('hidden',!reorderMode);
+  if(!reorderMode)
+  {
+    clearDragStyles();
+    dragIndex=-1;
+    dropIndex=-1
+  }
+}
+function clearDragStyles()
+{
+  document.querySelectorAll('#menu .dragging,#menu .drop-target').forEach(el=>
+  {
+    el.classList.remove('dragging','drop-target')
+  }
+  )
+}
+function menuItemIndex(element)
+{
+  return Array.from(menu.children).indexOf(element)
+}
+function finishDrag()
+{
+  if(dragIndex>=0&&dropIndex>=0&&dragIndex!==dropIndex)
+  {
+    const moved=items.splice(dragIndex,1)[0];
+    items.splice(dropIndex,0,moved);
+    if(saveData())
+    {
+      renderMenu();
+    }
+    else
+    {
+      // 保存に失敗した場合は、画面も保存前の順番に戻します。
+      items.splice(dropIndex,1);
+      items.splice(dragIndex,0,moved);
+      renderMenu()
+    }
+    renderManageList()
+  }
+  clearDragStyles();
+  dragIndex=-1;
+  dropIndex=-1
+}
+menu.addEventListener('pointerdown',event=>
+{
+  if(!reorderMode)return;
+  const item=event.target.closest('.item');
+  if(!item)return;
+  event.preventDefault();
+  dragIndex=menuItemIndex(item);
+  dropIndex=dragIndex;
+  item.classList.add('dragging')
+});
+document.addEventListener('pointermove',event=>
+{
+  if(!reorderMode||dragIndex<0)return;
+  event.preventDefault();
+  const under=document.elementFromPoint(event.clientX,event.clientY);
+  const target=under&&under.closest('#menu .item');
+  document.querySelectorAll('#menu .drop-target').forEach(el=>el.classList.remove('drop-target'));
+  if(target)
+  {
+    dropIndex=menuItemIndex(target);
+    if(target!==menu.children[dragIndex])target.classList.add('drop-target')
+  }
+  else dropIndex=-1
+},{passive:false});
+document.addEventListener('pointerup',()=>
+{
+  if(reorderMode&&dragIndex>=0)finishDrag()
+});
+document.addEventListener('pointercancel',()=>
+{
+  if(dragIndex>=0)finishDrag()
+});
+menu.addEventListener('click',event=>
+{
+  if(reorderMode)
+  {
+    event.preventDefault();
+    event.stopPropagation()
+  }
+},true);
 function renderMenu()
 {
   const menu=document.getElementById('menu');
@@ -512,6 +620,7 @@ function renderMenu()
 }
 function showManager()
 {
+  if(reorderMode)toggleReorderMode();
   main.style.display='none';
   manager.style.display='block';
   syncSettings();

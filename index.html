@@ -96,6 +96,30 @@ body.reorder-mode .item
   user-select:none;
   -webkit-user-select:none
 }
+.item.folder-item
+{
+  border:0;
+  padding:0;
+  background:transparent;
+  width:100%;
+  display:flex;
+}
+.folder-item .icon
+{
+  background:#343b49;
+}
+.folder-nav
+{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:0 0 18px;
+}
+.folder-nav button
+{
+  padding:8px 12px;
+  font-size:13px;
+}
 .item.dragging
 {
   opacity:.4;
@@ -330,7 +354,8 @@ button
 <h1>マイメニュー</h1>
 <button id="reorderToggle" class="reorder-button" onclick="toggleReorderMode()">↕ 並べ替え</button>
 </div>
-<div class="subtitle">よく使う操作を選択してください</div>
+<div class="subtitle" id="mainSubtitle">よく使う操作を選択してください</div>
+<div class="folder-nav hidden" id="folderNav"><button onclick="closeFolder()">← メニューに戻る</button><strong id="folderTitle"></strong></div>
 <div class="grid" id="menu">
 </div>
 <p id="reorderHint" class="note hidden">アイコンを押したまま、移動したい場所までドラッグしてください。終了したら「並べ替えを終了」を押してください。</p>
@@ -340,6 +365,8 @@ button
 <h1>メニュー管理</h1>
 <div class="subtitle">アイコンの追加・編集・削除・並び替え</div>
 <button class="primary" onclick="newItem()">＋ 新しい項目を追加</button>
+<button onclick="createFolder()" style="width:100%;margin-top:9px">📁 新しいフォルダを作成</button>
+<p class="note">項目の編集画面で保存先フォルダを選べます。フォルダを削除しても、中の項目はメニューに戻ります。</p>
 <div class="panel">
 <h3>表示設定</h3>
 <div class="setting-row">
@@ -375,7 +402,7 @@ button
 <button class="primary" onclick="backupMenu()">📥 バックアップを保存</button>
 <button onclick="document.getElementById('backupFile').click()" style="width:100%;margin-top:10px">📤 バックアップから復元</button>
 <input id="backupFile" type="file" accept=".json,application/json" style="display:none" onchange="restoreMenu(event)">
-<p class="note">登録項目・並び順・アイコン画像・表示設定を保存します。復元すると現在の内容は上書きされます。</p>
+<p class="note">登録項目・フォルダとその中身・並び順・アイコン画像・表示設定を保存します。復元すると現在の内容は上書きされます。</p>
 </div>
 <div id="editor" class="panel hidden">
 <h3 id="editorTitle">新しい項目</h3>
@@ -404,6 +431,10 @@ button
 <div class="field">
 <label id="targetLabel" for="itemTarget">起動URL</label>
 <input id="itemTarget" placeholder="https://example.com">
+</div>
+<div class="field">
+<label for="itemFolder">保存先フォルダ</label>
+<select id="itemFolder"><option value="">メインメニュー</option></select>
 </div>
 <button class="primary" onclick="saveItem()">保存する</button>
 <button onclick="cancelEdit()" style="width:100%;margin-top:8px">キャンセル</button>
@@ -451,7 +482,7 @@ let items=[],settings=
 {
   showNames:false,columns:3,iconSize:'medium',theme:'dark'
 }
-,editingIndex=-1,selectedImage='',reorderMode=false,dragIndex=-1,dropIndex=-1;
+,editingIndex=-1,editingList=items,selectedImage='',reorderMode=false,dragIndex=-1,dropIndex=-1,currentFolder=null;
 try
 {
   const s=localStorage.getItem(STORAGE_KEY);
@@ -553,6 +584,7 @@ function clearDragStyles()
   }
   )
 }
+function activeList(){return currentFolder?currentFolder.items:items}
 function menuItemIndex(element)
 {
   return Array.from(menu.children).indexOf(element)
@@ -561,8 +593,9 @@ function finishDrag()
 {
   if(dragIndex>=0&&dropIndex>=0&&dragIndex!==dropIndex)
   {
-    const moved=items.splice(dragIndex,1)[0];
-    items.splice(dropIndex,0,moved);
+    const list=activeList();
+    const moved=list.splice(dragIndex,1)[0];
+    list.splice(dropIndex,0,moved);
     if(saveData())
     {
       renderMenu();
@@ -570,8 +603,8 @@ function finishDrag()
     else
     {
       // 保存に失敗した場合は、画面も保存前の順番に戻します。
-      items.splice(dropIndex,1);
-      items.splice(dragIndex,0,moved);
+      list.splice(dropIndex,1);
+      list.splice(dragIndex,0,moved);
       renderMenu()
     }
     renderManageList()
@@ -623,42 +656,61 @@ menu.addEventListener('click',event=>
 function renderMenu()
 {
   const menu=document.getElementById('menu');
+  const list=activeList();
   menu.innerHTML='';
   menu.style.gridTemplateColumns=`repeat(${settings.columns},minmax(0,1fr))`;
-  items.forEach(item=>
+  document.getElementById('folderNav').classList.toggle('hidden',!currentFolder);
+  document.getElementById('mainSubtitle').classList.toggle('hidden',!!currentFolder);
+  if(currentFolder)document.getElementById('folderTitle').textContent=currentFolder.name;
+  list.forEach((item,index)=>
   {
-    const a=document.createElement('a');
-    a.className='item';
-    const box=document.createElement('div');
-    box.className='icon';
+    if(item.type==='folder')
+    {
+      const a=document.createElement('button');
+      a.type='button';a.className='item folder-item';a.onclick=()=>openFolder(item);
+      const box=document.createElement('div');box.className='icon';box.textContent=item.emoji||'📁';
+      const label=document.createElement('span');label.className='name';label.textContent=item.name;
+      a.append(box,label);menu.appendChild(a);return;
+    }
+    const a=document.createElement('a');a.className='item';
+    const box=document.createElement('div');box.className='icon';
     if(item.image)
     {
-      const img=document.createElement('img');
-      img.src=item.image;
-      img.alt=item.name||'';
-      img.onerror=()=>
-      {
-        img.remove();
-        box.textContent=item.emoji||'📱'
-      }
-      ;
-      box.appendChild(img)
+      const img=document.createElement('img');img.src=item.image;img.alt=item.name||'';
+      img.onerror=()=>{img.remove();box.textContent=item.emoji||'📱'};
+      box.appendChild(img);
     }
     else box.textContent=item.emoji||'📱';
-    const label=document.createElement('span');
-    label.className='name';
-    label.textContent=item.name||'';
+    const label=document.createElement('span');label.className='name';label.textContent=item.name||'';
     a.append(box,label);
     if(item.type==='shortcut')a.href='shortcuts://run-shortcut?name='+encodeURIComponent(item.target);
     else if(item.type==='url')a.href=item.target;
     else a.href='#';
-    menu.appendChild(a)
-  }
-  )
+    menu.appendChild(a);
+  });
 }
+function openFolder(folder){currentFolder=folder;renderMenu();}
+function closeFolder(){currentFolder=null;renderMenu();}
+function createFolder()
+{
+  const name=prompt('フォルダ名を入力してください');
+  if(!name||!name.trim())return;
+  items.push({name:name.trim(),emoji:'📁',image:'',type:'folder',items:[]});
+  if(saveData()){renderManageList();renderMenu();}
+  else items.pop();
+}
+function renameFolder(folder)
+{
+  const name=prompt('新しいフォルダ名を入力してください',folder.name);
+  if(!name||!name.trim())return;
+  const old=folder.name;folder.name=name.trim();
+  if(saveData()){renderManageList();renderMenu();}else folder.name=old;
+}
+
 function showManager()
 {
   if(reorderMode)toggleReorderMode();
+  currentFolder=null;
   main.style.display='none';
   manager.style.display='block';
   syncSettings();
@@ -679,62 +731,64 @@ function emojiBox(value)
 }
 function renderManageList()
 {
-  const list=document.getElementById('manageList');
-  list.innerHTML='';
-  items.forEach((item,i)=>
+  const list=document.getElementById('manageList');list.innerHTML='';
+  function addRows(source,folderName='')
   {
-    const row=document.createElement('div');
-    row.className='manage-item';
-    if(item.image)
+    source.forEach((item,i)=>
     {
-      const img=document.createElement('img');
-      img.src=item.image;
-      img.alt='';
-      img.onerror=()=>img.replaceWith(emojiBox(item.emoji));
-      row.appendChild(img)
-    }
-    else row.appendChild(emojiBox(item.emoji));
-    const info=document.createElement('div');
-    info.className='info';
-    const title=document.createElement('strong');
-    title.textContent=item.name;
-    const small=document.createElement('small');
-    small.textContent=item.type==='shortcut'?'ショートカット':'URL・アプリ';
-    info.append(title,document.createElement('br'),small);
-    const actions=document.createElement('div');
-    actions.className='actions';
-    [['↑',()=>moveItem(i,-1),i===0],['↓',()=>moveItem(i,1),i===items.length-1],['編集',()=>editItem(i),false],['削除',()=>deleteItem(i),false]].forEach(([t,fn,disabled])=>
-    {
-      const b=document.createElement('button');
-      b.textContent=t;
-      b.disabled=disabled;
-      b.onclick=fn;
-      if(t==='削除')b.className='delete';
-      actions.appendChild(b)
-    }
-    );
-    row.append(info,actions);
-    list.appendChild(row)
+      const row=document.createElement('div');row.className='manage-item';
+      if(item.type==='folder')row.appendChild(emojiBox(item.emoji||'📁'));
+      else if(item.image){const img=document.createElement('img');img.src=item.image;img.alt='';img.onerror=()=>img.replaceWith(emojiBox(item.emoji));row.appendChild(img);}
+      else row.appendChild(emojiBox(item.emoji));
+      const info=document.createElement('div');info.className='info';
+      const title=document.createElement('strong');title.textContent=(folderName?'└ ':'')+item.name;
+      const small=document.createElement('small');small.textContent=item.type==='folder'?'フォルダ':(folderName?'フォルダ内・':'')+(item.type==='shortcut'?'ショートカット':'URL・アプリ');
+      info.append(title,document.createElement('br'),small);
+      const actions=document.createElement('div');actions.className='actions';
+      if(item.type==='folder')
+      {
+        [['名前変更',()=>renameFolder(item)],['削除',()=>deleteItem(i,source),false]].forEach(([t,fn])=>{const b=document.createElement('button');b.textContent=t;b.onclick=fn;if(t==='削除')b.className='delete';actions.appendChild(b);});
+      }
+      else
+      {
+        [['↑',()=>moveItem(i,-1,source),i===0],['↓',()=>moveItem(i,1,source),i===source.length-1],['編集',()=>editItem(i,source)],['削除',()=>deleteItem(i,source)]].forEach(([t,fn,disabled])=>{const b=document.createElement('button');b.textContent=t;b.onclick=fn;b.disabled=!!disabled;if(t==='削除')b.className='delete';actions.appendChild(b);});
+      }
+      row.append(info,actions);list.appendChild(row);
+      if(item.type==='folder')addRows(item.items||[],item.name);
+    });
   }
-  )
+  addRows(items);
+}
+
+function findParentFolder(source){return items.find(x=>x.type==='folder'&&x.items===source)||null;}
+function folderIndexForSource(source){return items.findIndex(x=>x.type==='folder'&&x.items===source);}
+function populateFolderSelect(selected)
+{
+  itemFolder.innerHTML='<option value="">メインメニュー</option>';
+  items.forEach((x,i)=>{if(x.type==='folder'){const o=document.createElement('option');o.value=String(i);o.textContent=x.name;itemFolder.appendChild(o);}});
+  if(selected){const i=items.indexOf(selected);if(i>=0)itemFolder.value=String(i);}
 }
 function newItem()
 {
   editingIndex=-1;
+  editingList=items;
   selectedImage='';
   editorTitle.textContent='新しい項目';
   itemName.value='';
   itemEmoji.value='📱';
   itemType.value='url';
   itemTarget.value='';
+  populateFolderSelect(null);
+  itemFolder.value='';
   itemImage.value='';
   updateTargetLabel();
   updatePreview();
   editor.classList.remove('hidden')
 }
-function editItem(i)
+function editItem(i,source=items)
 {
-  const x=items[i];
+  const x=source[i];
+  editingList=source;
   editingIndex=i;
   selectedImage=x.image||'';
   editorTitle.textContent='項目を編集';
@@ -742,6 +796,8 @@ function editItem(i)
   itemEmoji.value=x.emoji||'📱';
   itemType.value=x.type;
   itemTarget.value=x.target||'';
+  populateFolderSelect(source===items?null:findParentFolder(source));
+  itemFolder.value=source===items?'':String(folderIndexForSource(source));
   itemImage.value='';
   updateTargetLabel();
   updatePreview();
@@ -815,57 +871,56 @@ itemImage.addEventListener('change',function()
 function saveItem()
 {
   const name=itemName.value.trim(),type=itemType.value,target=itemTarget.value.trim(),emoji=itemEmoji.value.trim()||'📱';
-  if(!name||!target)
+  if(!name||!target){alert('表示名と起動先を入力してください。');return;}
+  if(type==='url'&&!/^(https?:\/\/|shortcuts:\/\/)/i.test(target)){alert('URLを正しく入力してください。');return;}
+  const snapshot=JSON.parse(JSON.stringify(items));
+  const oldList=editingList,oldIndex=editingIndex;
+  const obj={name,emoji,image:selectedImage,type,target};
+  const destIndex=itemFolder.value===''?-1:Number(itemFolder.value);
+  const dest=destIndex<0?items:items[destIndex]?.items;
+  if(!dest){alert('保存先フォルダが見つかりません。');return;}
+  if(oldIndex>=0)
   {
-    alert('表示名と起動先を入力してください。');
-    return
+    if(oldList===dest)oldList[oldIndex]=obj;
+    else {oldList.splice(oldIndex,1);dest.push(obj);}
   }
-  if(type==='url'&&!/^(https?:\/\/|shortcuts:\/\/)/i.test(target))
-  {
-    alert('URLを正しく入力してください。');
-    return
-  }
-  const old=items.slice(),obj=
-  {
-    name,emoji,image:selectedImage,type,target
-  }
-  ;
-  if(editingIndex>=0)items[editingIndex]=obj;
-  else items.push(obj);
+  else dest.push(obj);
   if(saveData())
   {
+    editor.classList.add('hidden');renderManageList();renderMenu();alert('保存しました。');
+  }
+  else
+  {
+    items=snapshot;
+    editingList=items;
+    editingIndex=-1;
     editor.classList.add('hidden');
     renderManageList();
     renderMenu();
-    alert('保存しました。')
   }
-  else items=old
 }
-function deleteItem(i)
+
+function deleteItem(i,source=items)
 {
-  if(!confirm('「'+items[i].name+'」を削除しますか？'))return;
-  const old=items.slice();
-  items.splice(i,1);
-  if(saveData())
+  const item=source[i];
+  if(item.type==='folder')
   {
-    renderManageList();
-    renderMenu()
+    if(!confirm('フォルダ「'+item.name+'」を削除しますか？\n中の項目はメインメニューへ移動します。'))return;
+    const old=items.slice();const children=item.items||[];source.splice(i,1);items.push(...children);
+    if(saveData()){renderManageList();renderMenu();}else items=old;
+    return;
   }
-  else items=old
+  if(!confirm('「'+item.name+'」を削除しますか？'))return;
+  const old=source.slice();source.splice(i,1);
+  if(saveData()){renderManageList();renderMenu();}else source.splice(0,source.length,...old);
 }
-function moveItem(i,d)
+function moveItem(i,d,source=items)
 {
-  const n=i+d;
-  if(n<0||n>=items.length)return;
-  const old=items.slice();
-  [items[i],items[n]]=[items[n],items[i]];
-  if(saveData())
-  {
-    renderManageList();
-    renderMenu()
-  }
-  else items=old
+  const n=i+d;if(n<0||n>=source.length)return;
+  const old=source.slice();[source[i],source[n]]=[source[n],source[i]];
+  if(saveData()){renderManageList();renderMenu();}else source.splice(0,source.length,...old);
 }
+
 function backupMenu()
 {
   const data=
@@ -897,7 +952,8 @@ function restoreMenu(event)
     {
       const b=JSON.parse(reader.result);
       if(b.app!=='myMenu'||b.version!==1||!Array.isArray(b.items))throw Error('backup');
-      const ok=b.items.every(x=>x&&typeof x.name==='string'&&typeof x.emoji==='string'&&typeof x.image==='string'&&['url','shortcut'].includes(x.type)&&typeof x.target==='string');
+      const valid=x=>x&&typeof x.name==='string'&&typeof x.emoji==='string'&&typeof x.image==='string'&&(x.type==='folder'?Array.isArray(x.items)&&x.items.every(y=>valid(y)&&y.type!=='folder'):['url','shortcut'].includes(x.type)&&typeof x.target==='string');
+      const ok=b.items.every(valid);
       if(!ok)throw Error('items');
       if(!confirm('現在のメニューと表示設定をバックアップ内容で上書きします。\nよろしいですか？'))return;
       const oldI=items,oldS=settings;
@@ -909,6 +965,7 @@ function restoreMenu(event)
       ;
       if(saveData()&&saveSettings())
       {
+        currentFolder=null;
         applySettings();
         syncSettings();
         renderManageList();

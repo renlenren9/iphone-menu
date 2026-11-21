@@ -30,6 +30,41 @@ h1
   font-size:25px;
   margin:10px 0 8px
 }
+.header-row
+{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:10px 0 8px
+}
+.header-row h1
+{
+  margin:0;
+  min-width:0
+}
+.reorder-button
+{
+  flex:0 0 auto;
+  width:auto;
+  margin:0;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#292d36;
+  color:#fff;
+  font-size:13px;
+  white-space:nowrap
+}
+.light-theme .reorder-button
+{
+  background:#dedee5;
+  color:#1c1c1e
+}
+.reorder-button.active
+{
+  background:#3478f6!important;
+  color:#fff!important
+}
 .subtitle
 {
   color:#999;
@@ -291,11 +326,13 @@ button
 </head>
 <body>
 <div id="main">
+<div class="header-row">
 <h1>マイメニュー</h1>
+<button id="reorderToggle" class="reorder-button" onclick="toggleReorderMode()">↕ 並べ替え</button>
+</div>
 <div class="subtitle">よく使う操作を選択してください</div>
 <div class="grid" id="menu">
 </div>
-<button id="reorderToggle" class="manage-button" style="margin-top:12px" onclick="toggleReorderMode()">↕️ 並べ替えモード</button>
 <p id="reorderHint" class="note hidden">アイコンを押したまま、移動したい場所までドラッグしてください。終了したら「並べ替えを終了」を押してください。</p>
 <button class="manage-button" onclick="showManager()">⚙️ メニュー管理</button>
 </div>
@@ -498,7 +535,8 @@ function toggleReorderMode()
 {
   reorderMode=!reorderMode;
   document.body.classList.toggle('reorder-mode',reorderMode);
-  reorderToggle.textContent=reorderMode?'✓ 並べ替えを終了':'↕️ 並べ替えモード';
+  reorderToggle.textContent=reorderMode?'✓ 終了':'↕ 並べ替え';
+  reorderToggle.classList.toggle('active',reorderMode);
   reorderHint.classList.toggle('hidden',!reorderMode);
   if(!reorderMode)
   {

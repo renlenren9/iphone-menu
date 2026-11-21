@@ -213,6 +213,32 @@ button {
 
   <button class="primary" onclick="newItem()">＋ 新しい項目を追加</button>
 
+  <div class="panel">
+  <h3>バックアップ・復元</h3>
+
+  <button class="primary" onclick="backupMenu()">
+    📥 バックアップを保存
+  </button>
+
+  <button onclick="document.getElementById('backupFile').click()"
+          style="width:100%;margin-top:10px">
+    📤 バックアップから復元
+  </button>
+
+  <input
+    id="backupFile"
+    type="file"
+    accept=".json,application/json"
+    style="display:none"
+    onchange="restoreMenu(event)"
+  >
+
+  <p class="note">
+    登録項目・並び順・アイコン画像を保存します。
+    復元すると現在のメニュー内容は上書きされます。
+  </p>
+  </div>
+  
   <div id="editor" class="panel hidden">
     <h3 id="editorTitle">新しい項目</h3>
 
@@ -309,6 +335,98 @@ function saveData() {
     alert("保存できませんでした。画像の容量が大きい可能性があります。");
     return false;
   }
+}
+
+// ==================================
+// バックアップ・復元
+// ==================================
+
+function backupMenu() {
+  const backup = {
+    app: "myMenu",
+    version: 1,
+    createdAt: new Date().toISOString(),
+    items: items
+  };
+
+  const blob = new Blob(
+    [JSON.stringify(backup, null, 2)],
+    { type: "application/json" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  const date = new Date().toISOString().slice(0, 10);
+
+  link.href = url;
+  link.download = "my-menu-backup-" + date + ".json";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  alert("バックアップファイルを作成しました。");
+}
+
+function restoreMenu(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function() {
+    try {
+      const backup = JSON.parse(reader.result);
+
+      if (
+        backup.app !== "myMenu" ||
+        backup.version !== 1 ||
+        !Array.isArray(backup.items)
+      ) {
+        throw new Error("invalid backup");
+      }
+
+      const valid = backup.items.every(item =>
+        item &&
+        typeof item.name === "string" &&
+        typeof item.emoji === "string" &&
+        typeof item.image === "string" &&
+        ["url", "shortcut"].includes(item.type) &&
+        typeof item.target === "string"
+      );
+
+      if (!valid) {
+        throw new Error("invalid items");
+      }
+
+      if (!confirm(
+        "現在のメニューをバックアップの内容で上書きします。\nよろしいですか？"
+      )) {
+        return;
+      }
+
+      const oldItems = items;
+      items = backup.items;
+
+      if (saveData()) {
+        renderManageList();
+        renderMenu();
+        alert("バックアップから復元しました。");
+      } else {
+        items = oldItems;
+      }
+
+    } catch(e) {
+      alert("バックアップファイルを読み込めませんでした。");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  reader.readAsText(file);
 }
 
 // ==================================

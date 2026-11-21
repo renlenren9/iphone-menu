@@ -19,16 +19,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-h1 {
-  font-size: 25px;
-  margin: 10px 0 8px;
-}
-
-.subtitle {
-  color: #999;
-  font-size: 13px;
-  margin-bottom: 28px;
-}
+h1 { font-size: 25px; margin: 10px 0 8px; }
+.subtitle { color: #999; font-size: 13px; margin-bottom: 25px; }
 
 .grid {
   display: grid;
@@ -42,6 +34,7 @@ h1 {
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  min-width: 0;
 }
 
 .icon {
@@ -69,119 +62,579 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+button, input, select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 15px;
+  background: #303541;
+  color: white;
+  cursor: pointer;
+}
+
+.primary {
+  background: #3478f6;
+  width: 100%;
+}
+
+.manage-button {
+  width: 100%;
+  margin-top: 30px;
+  background: #292d36;
+}
+
+#manager { display: none; }
+
+.panel {
+  background: #20242d;
+  border-radius: 14px;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.field {
+  display: block;
+  margin: 14px 0;
+}
+
+.field label {
+  display: block;
+  color: #bbb;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+
+.field input, .field select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #454b58;
+  border-radius: 9px;
+  background: #151820;
+  color: white;
+}
+
+.preview {
+  width: 82px;
+  height: 82px;
+  border-radius: 18px;
+  background: #303541;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.manage-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #292d36;
+  border-radius: 12px;
+  padding: 10px;
+  margin: 9px 0;
+}
+
+.manage-item img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 11px;
+}
+
+.manage-item .emoji {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: #3a404c;
+  border-radius: 11px;
+  font-size: 27px;
+}
+
+.manage-item .info {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.manage-item small {
+  color: #aaa;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.actions button {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.delete { background: #9e343c; }
+
+.hidden { display: none !important; }
+
+.note {
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 </style>
 </head>
 
 <body>
 
-<h1>マイメニュー</h1>
-<div class="subtitle">よく使う操作を選択してください</div>
+<div id="main">
+  <h1>マイメニュー</h1>
+  <div class="subtitle">よく使う操作を選択してください</div>
+  <div class="grid" id="menu"></div>
+  <button class="manage-button" onclick="showManager()">
+    ⚙️ メニュー管理
+  </button>
+</div>
 
-<div class="grid" id="menu"></div>
+<div id="manager">
+  <h1>メニュー管理</h1>
+  <div class="subtitle">アイコンの追加・編集・削除・並び替え</div>
+
+  <button class="primary" onclick="newItem()">＋ 新しい項目を追加</button>
+
+  <div id="editor" class="panel hidden">
+    <h3 id="editorTitle">新しい項目</h3>
+
+    <div class="field">
+      <label>表示名</label>
+      <input id="itemName" placeholder="例：Googleカレンダー">
+    </div>
+
+    <div class="field">
+      <label>アイコン画像</label>
+      <input id="itemImage" type="file" accept="image/*">
+      <div class="note">写真やファイルから画像を選択できます。画像は縮小して保存します。</div>
+      <div class="preview" id="preview">📱</div>
+      <button onclick="clearImage()" style="margin-top:8px">画像を解除</button>
+    </div>
+
+    <div class="field">
+      <label>絵文字（画像がない場合）</label>
+      <input id="itemEmoji" value="📱" maxlength="8">
+    </div>
+
+    <div class="field">
+      <label>起動方法</label>
+      <select id="itemType" onchange="updateTargetLabel()">
+        <option value="url">アプリ・Webサイトを直接開く</option>
+        <option value="shortcut">ショートカットを実行</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label id="targetLabel">起動URL</label>
+      <input id="itemTarget" placeholder="https://example.com">
+    </div>
+
+    <button class="primary" onclick="saveItem()">保存する</button>
+    <button onclick="cancelEdit()" style="width:100%;margin-top:8px">キャンセル</button>
+  </div>
+
+  <h3>登録済み項目</h3>
+  <div id="manageList"></div>
+
+  <button onclick="hideManager()" style="width:100%;margin-top:20px">
+    ← メニューに戻る
+  </button>
+
+  <p class="note">
+    登録内容はこのiPhoneのWebアプリ内に保存されます。
+    Webサイトのデータを削除すると失われる場合があります。
+  </p>
+</div>
 
 <script>
 
-// =================================
-// メニュー登録
-// =================================
+// ==================================
+// 初期登録データ
+// ==================================
 
-const items = [
+const defaultItems = [
+  {name:"アラーム",emoji:"⏰",image:"",type:"shortcut",target:"アラーム設定"},
+  {name:"カレンダー",emoji:"📅",image:"",type:"shortcut",target:"カレンダー起動"},
+  {name:"ライト",emoji:"🔦",image:"",type:"shortcut",target:"ライト切替"},
+  {name:"バッテリー",emoji:"🔋",image:"",type:"shortcut",target:"バッテリー確認"},
+  {name:"ゲーム",emoji:"🎮",image:"",type:"shortcut",target:"ゲームメニュー"},
+  {name:"設定",emoji:"⚙️",image:"",type:"shortcut",target:"設定メニュー"},
   {
-    name: "アラーム",
-    emoji: "⏰",
-    image: "",
-    type: "shortcut",
-    target: "アラーム設定"
-  },
-  {
-    name: "カレンダー",
-    emoji: "📅",
-    image: "",
-    type: "shortcut",
-    target: "カレンダー起動"
-  },
-  {
-    name: "ライト",
-    emoji: "🔦",
-    image: "",
-    type: "shortcut",
-    target: "ライト切替"
-  },
-  {
-    name: "バッテリー",
-    emoji: "🔋",
-    image: "",
-    type: "shortcut",
-    target: "バッテリー確認"
-  },
-  {
-    name: "ゲーム",
-    emoji: "🎮",
-    image: "",
-    type: "shortcut",
-    target: "ゲームメニュー"
-  },
-  {
-    name: "設定",
-    emoji: "⚙️",
-    image: "",
-    type: "shortcut",
-    target: "設定メニュー"
-  },
-  {
-  name: "d払い",
-  emoji: "💳",
-  image: "icons/dbarai.png",
-  type: "url",
-  target: "https://rpapl.aif.pub.cilite.docomo.ne.jp/dpay_app"
+    name:"d払い",
+    emoji:"💳",
+    image:"icons/dbarai.png",
+    type:"url",
+    target:"https://rpapl.aif.pub.cilite.docomo.ne.jp/dpay_app"
   }
 ];
 
-// =================================
-// 画面表示
-// =================================
+const STORAGE_KEY = "myMenuItems_v1";
 
-const menu = document.getElementById("menu");
+let items = [];
+let editingIndex = -1;
+let selectedImage = "";
+let originalImage = "";
 
-items.forEach(item => {
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  items = saved ? JSON.parse(saved) : defaultItems;
+  if (!Array.isArray(items)) throw new Error("invalid data");
+} catch(e) {
+  items = defaultItems;
+}
 
-  const link = document.createElement("a");
-  link.className = "item";
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    return true;
+  } catch(e) {
+    alert("保存できませんでした。画像の容量が大きい可能性があります。");
+    return false;
+  }
+}
 
-  const icon = document.createElement("div");
-  icon.className = "icon";
+// ==================================
+// メニュー表示
+// ==================================
 
-  if (item.image) {
-    const img = document.createElement("img");
-    img.src = item.image;
-    img.alt = item.name;
-    img.onerror = () => {
-      icon.textContent = item.emoji;
-    };
-    icon.appendChild(img);
+function renderMenu() {
+  const menu = document.getElementById("menu");
+  menu.innerHTML = "";
+
+  items.forEach(item => {
+    const link = document.createElement("a");
+    link.className = "item";
+
+    const icon = document.createElement("div");
+    icon.className = "icon";
+
+    if (item.image) {
+      const img = document.createElement("img");
+      img.src = item.image;
+      img.alt = item.name;
+      img.onerror = () => {
+        icon.textContent = item.emoji || "📱";
+      };
+      icon.appendChild(img);
+    } else {
+      icon.textContent = item.emoji || "📱";
+    }
+
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = item.name;
+
+    link.appendChild(icon);
+    link.appendChild(name);
+
+    if (item.type === "shortcut") {
+      link.href = "shortcuts://run-shortcut?name=" +
+        encodeURIComponent(item.target);
+    } else if (item.type === "url") {
+      link.href = item.target;
+    }
+
+    menu.appendChild(link);
+  });
+}
+
+// ==================================
+// 管理画面
+// ==================================
+
+function showManager() {
+  document.getElementById("main").style.display = "none";
+  document.getElementById("manager").style.display = "block";
+  renderManageList();
+}
+
+function hideManager() {
+  document.getElementById("manager").style.display = "none";
+  document.getElementById("main").style.display = "block";
+  renderMenu();
+}
+
+function renderManageList() {
+  const list = document.getElementById("manageList");
+  list.innerHTML = "";
+
+  items.forEach((item, i) => {
+    const row = document.createElement("div");
+    row.className = "manage-item";
+
+    if (item.image) {
+      const img = document.createElement("img");
+      img.src = item.image;
+      row.appendChild(img);
+    } else {
+      const emoji = document.createElement("div");
+      emoji.className = "emoji";
+      emoji.textContent = item.emoji || "📱";
+      row.appendChild(emoji);
+    }
+
+    const info = document.createElement("div");
+    info.className = "info";
+
+    const title = document.createElement("strong");
+    title.textContent = item.name;
+
+    const detail = document.createElement("small");
+    detail.textContent =
+      item.type === "shortcut" ? "ショートカット" : "URL・アプリ";
+
+    info.appendChild(title);
+    info.appendChild(document.createElement("br"));
+    info.appendChild(detail);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    const up = document.createElement("button");
+    up.textContent = "↑";
+    up.disabled = i === 0;
+    up.onclick = () => moveItem(i, -1);
+
+    const down = document.createElement("button");
+    down.textContent = "↓";
+    down.disabled = i === items.length - 1;
+    down.onclick = () => moveItem(i, 1);
+
+    const edit = document.createElement("button");
+    edit.textContent = "編集";
+    edit.onclick = () => editItem(i);
+
+    const del = document.createElement("button");
+    del.textContent = "削除";
+    del.className = "delete";
+    del.onclick = () => deleteItem(i);
+
+    actions.append(up, down, edit, del);
+    row.append(info, actions);
+    list.appendChild(row);
+  });
+}
+
+// ==================================
+// 追加・編集
+// ==================================
+
+function newItem() {
+  editingIndex = -1;
+  selectedImage = "";
+  originalImage = "";
+
+  document.getElementById("editorTitle").textContent = "新しい項目";
+  document.getElementById("itemName").value = "";
+  document.getElementById("itemEmoji").value = "📱";
+  document.getElementById("itemType").value = "url";
+  document.getElementById("itemTarget").value = "";
+  document.getElementById("itemImage").value = "";
+
+  updateTargetLabel();
+  updatePreview();
+
+  document.getElementById("editor").classList.remove("hidden");
+  document.getElementById("itemName").focus();
+}
+
+function editItem(i) {
+  const item = items[i];
+  editingIndex = i;
+  selectedImage = item.image || "";
+  originalImage = item.image || "";
+
+  document.getElementById("editorTitle").textContent = "項目を編集";
+  document.getElementById("itemName").value = item.name;
+  document.getElementById("itemEmoji").value = item.emoji || "📱";
+  document.getElementById("itemType").value = item.type;
+  document.getElementById("itemTarget").value = item.target;
+  document.getElementById("itemImage").value = "";
+
+  updateTargetLabel();
+  updatePreview();
+
+  document.getElementById("editor").classList.remove("hidden");
+}
+
+function cancelEdit() {
+  document.getElementById("editor").classList.add("hidden");
+}
+
+function updateTargetLabel() {
+  const type = document.getElementById("itemType").value;
+  const label = document.getElementById("targetLabel");
+  const input = document.getElementById("itemTarget");
+
+  if (type === "shortcut") {
+    label.textContent = "実行するショートカット名";
+    input.placeholder = "例：アラーム設定";
   } else {
-    icon.textContent = item.emoji;
+    label.textContent = "起動URL";
+    input.placeholder = "https://example.com";
+  }
+}
+
+// ==================================
+// 画像処理
+// ==================================
+
+function updatePreview() {
+  const preview = document.getElementById("preview");
+  preview.innerHTML = "";
+
+  if (selectedImage) {
+    const img = document.createElement("img");
+    img.src = selectedImage;
+    preview.appendChild(img);
+  } else {
+    preview.textContent =
+      document.getElementById("itemEmoji").value || "📱";
+  }
+}
+
+document.getElementById("itemEmoji").addEventListener("input", updatePreview);
+
+function clearImage() {
+  selectedImage = "";
+  document.getElementById("itemImage").value = "";
+  updatePreview();
+}
+
+document.getElementById("itemImage").addEventListener("change", function() {
+  const file = this.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("画像ファイルを選択してください。");
+    return;
   }
 
-  const name = document.createElement("span");
-  name.className = "name";
-  name.textContent = item.name;
+  const reader = new FileReader();
 
-  link.appendChild(icon);
-  link.appendChild(name);
+  reader.onload = function(event) {
+    const image = new Image();
 
-  if (item.type === "shortcut") {
-    link.href =
-      "shortcuts://run-shortcut?name=" +
-      encodeURIComponent(item.target);
-  } else if (item.type === "url") {
-    link.href = item.target;
-  }
+    image.onload = function() {
+      const canvas = document.createElement("canvas");
+      const size = 256;
 
-  menu.appendChild(link);
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+      const scale = Math.max(size / image.width, size / image.height);
+      const width = image.width * scale;
+      const height = image.height * scale;
+
+      ctx.drawImage(
+        image,
+        (size - width) / 2,
+        (size - height) / 2,
+        width,
+        height
+      );
+
+      selectedImage = canvas.toDataURL("image/jpeg", 0.85);
+      updatePreview();
+    };
+
+    image.src = event.target.result;
+  };
+
+  reader.readAsDataURL(file);
 });
 
-</script>
+// ==================================
+// 保存
+// ==================================
 
+function saveItem() {
+  const name = document.getElementById("itemName").value.trim();
+  const type = document.getElementById("itemType").value;
+  const target = document.getElementById("itemTarget").value.trim();
+  const emoji = document.getElementById("itemEmoji").value.trim() || "📱";
+
+  if (!name || !target) {
+    alert("表示名と起動先を入力してください。");
+    return;
+  }
+
+  if (type === "url" &&
+      !/^https?:\/\/|^shortcuts:\/\//i.test(target)) {
+    alert("URLを正しく入力してください。");
+    return;
+  }
+
+  const item = {
+    name,
+    emoji,
+    image: selectedImage,
+    type,
+    target
+  };
+
+  if (editingIndex >= 0) {
+    items[editingIndex] = item;
+  } else {
+    items.push(item);
+  }
+
+  if (saveData()) {
+    document.getElementById("editor").classList.add("hidden");
+    renderManageList();
+    renderMenu();
+    alert("保存しました。");
+  }
+}
+
+// ==================================
+// 削除・並び替え
+// ==================================
+
+function deleteItem(i) {
+  if (!confirm("「" + items[i].name + "」を削除しますか？")) return;
+
+  items.splice(i, 1);
+
+  if (saveData()) {
+    renderManageList();
+    renderMenu();
+  }
+}
+
+function moveItem(i, direction) {
+  const next = i + direction;
+  if (next < 0 || next >= items.length) return;
+
+  [items[i], items[next]] = [items[next], items[i]];
+
+  if (saveData()) {
+    renderManageList();
+    renderMenu();
+  }
+}
+
+renderMenu();
+
+</script>
 </body>
 </html>

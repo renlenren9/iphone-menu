@@ -1,0 +1,180 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#111318">
+<title>マイメニュー</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 25px 18px;
+  background: #111318;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1 {
+  font-size: 25px;
+  margin: 10px 0 8px;
+}
+
+.subtitle {
+  color: #999;
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px 14px;
+}
+
+.item {
+  text-decoration: none;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.icon {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 23%;
+  background: #292d36;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 43px;
+}
+
+.icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.name {
+  display: block;
+  font-size: 12px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>マイメニュー</h1>
+<div class="subtitle">よく使う操作を選択してください</div>
+
+<div class="grid" id="menu"></div>
+
+<script>
+
+// =================================
+// メニュー登録
+// =================================
+
+const items = [
+  {
+    name: "アラーム",
+    emoji: "⏰",
+    image: "",
+    type: "shortcut",
+    target: "アラーム設定"
+  },
+  {
+    name: "カレンダー",
+    emoji: "📅",
+    image: "",
+    type: "shortcut",
+    target: "カレンダー起動"
+  },
+  {
+    name: "ライト",
+    emoji: "🔦",
+    image: "",
+    type: "shortcut",
+    target: "ライト切替"
+  },
+  {
+    name: "バッテリー",
+    emoji: "🔋",
+    image: "",
+    type: "shortcut",
+    target: "バッテリー確認"
+  },
+  {
+    name: "ゲーム",
+    emoji: "🎮",
+    image: "",
+    type: "shortcut",
+    target: "ゲームメニュー"
+  },
+  {
+    name: "設定",
+    emoji: "⚙️",
+    image: "",
+    type: "shortcut",
+    target: "設定メニュー"
+  }
+];
+
+// =================================
+// 画面表示
+// =================================
+
+const menu = document.getElementById("menu");
+
+items.forEach(item => {
+
+  const link = document.createElement("a");
+  link.className = "item";
+
+  const icon = document.createElement("div");
+  icon.className = "icon";
+
+  if (item.image) {
+    const img = document.createElement("img");
+    img.src = item.image;
+    img.alt = item.name;
+    img.onerror = () => {
+      icon.textContent = item.emoji;
+    };
+    icon.appendChild(img);
+  } else {
+    icon.textContent = item.emoji;
+  }
+
+  const name = document.createElement("span");
+  name.className = "name";
+  name.textContent = item.name;
+
+  link.appendChild(icon);
+  link.appendChild(name);
+
+  if (item.type === "shortcut") {
+    link.href =
+      "shortcuts://run-shortcut?name=" +
+      encodeURIComponent(item.target);
+  } else if (item.type === "url") {
+    link.href = item.target;
+  }
+
+  menu.appendChild(link);
+});
+
+</script>
+
+</body>
+</html>
